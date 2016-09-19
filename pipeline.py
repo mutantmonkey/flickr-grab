@@ -68,7 +68,7 @@ if not WGET_LUA:
 #
 # Update this each time you make a non-cosmetic change.
 # It will be added to the WARC files and reported to the tracker.
-VERSION = "20160919.01"
+VERSION = "20160919.03"
 USER_AGENT = 'ArchiveTeam'
 TRACKER_ID = 'flickr'
 TRACKER_HOST = 'tracker.archiveteam.org'
@@ -217,12 +217,8 @@ class MoveFiles(SimpleTask):
         if os.path.exists("%(item_dir)s/%(warc_file_base)s.warc" % item):
             raise Exception('Please compile wget with zlib support!')
 
-        if os.path.isfile("%(item_dir)s/%(warc_file_base)s-deduplicated.warc.gz" % item):
-            os.rename("%(item_dir)s/%(warc_file_base)s-deduplicated.warc.gz" % item,
-                "%(data_dir)s/%(warc_file_base)s.warc.gz" % item)
-        else:
-            os.rename("%(item_dir)s/%(warc_file_base)s.warc.gz" % item,
-                "%(data_dir)s/%(warc_file_base)s.warc.gz" % item)
+        os.rename("%(item_dir)s/%(warc_file_base)s-deduplicated.warc.gz" % item,
+            "%(data_dir)s/%(warc_file_base)s-deduplicated.warc.gz" % item)
 
         shutil.rmtree("%(item_dir)s" % item)
 
@@ -351,17 +347,17 @@ pipeline = Pipeline(
             "item_type": ItemValue("item_type"),
         }
     ),
+    Deduplicate(),
     PrepareStatsForTracker(
         defaults={"downloader": downloader, "version": VERSION},
         file_groups={
             "data": [
-                ItemInterpolation("%(item_dir)s/%(warc_file_base)s.warc.gz")
+                ItemInterpolation("%(item_dir)s/%(warc_file_base)s-deduplicated.warc.gz")
             ]
         },
         id_function=stats_id_function,
     ),
-    Deduplicate(),
-    #MoveFiles(),
+    MoveFiles(),
     LimitConcurrent(NumberConfigValue(min=1, max=4, default="1",
         name="shared:rsync_threads", title="Rsync threads",
         description="The maximum number of concurrent uploads."),
@@ -370,7 +366,7 @@ pipeline = Pipeline(
             downloader=downloader,
             version=VERSION,
             files=[
-                ItemInterpolation("%(data_dir)s/%(warc_file_base)s.warc.gz")
+                ItemInterpolation("%(data_dir)s/%(warc_file_base)s-deduplicated.warc.gz")
             ],
             rsync_target_source_path=ItemInterpolation("%(data_dir)s/"),
             rsync_extra_args=[
