@@ -132,7 +132,7 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
   if allowed(url) and not (string.match(url, "^https?://[^/]*staticflickr%.com/") or string.match(url, "^https?://[^/]*yimg%.com")) then
     html = read_file(file)
     if string.match(html, "hermes%-[0-9]%.[0-9]%.[0-9]+") then
-      if string.match(html, "(hermes%-[0-9]%.[0-9]%.[0-9]+)") ~= "hermes-1.1.1114" then
+      if string.match(html, "(hermes%-[0-9]%.[0-9]%.[0-9]+)") ~= "hermes-1.1.1116" then
         abortgrab = true
       end
     end
