@@ -68,7 +68,7 @@ if not WGET_LUA:
 #
 # Update this each time you make a non-cosmetic change.
 # It will be added to the WARC files and reported to the tracker.
-VERSION = "20170108.02"
+VERSION = "20170108.03"
 USER_AGENT = 'ArchiveTeam'
 TRACKER_ID = 'flickr'
 TRACKER_HOST = 'tracker.archiveteam.org'
@@ -294,6 +294,9 @@ class WgetArgs(object):
                     continue
                 elif len(photo_user_response.text) == 0 \
                       or photo_user_response.status_code != 200:
+                    print('Photo {0}.'.format(photo_user_id))
+                    print('Received status code {0}.'.format(photo_user_response.status_code))
+                    print('Received {0} bytes.'.format(len(photo_user_response.text)))
                     raise Exception('Something went wrong... ABORTING')
 
                 photo_user = re.search(r'<meta\s+property="og:url"\s+content="https://www\.flickr\.com/photos/([^/]+)/"\s+data-dynamic="true">',
