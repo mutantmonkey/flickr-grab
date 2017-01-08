@@ -68,7 +68,7 @@ if not WGET_LUA:
 #
 # Update this each time you make a non-cosmetic change.
 # It will be added to the WARC files and reported to the tracker.
-VERSION = "20161107.01"
+VERSION = "20170108.01"
 USER_AGENT = 'ArchiveTeam'
 TRACKER_ID = 'flickr'
 TRACKER_HOST = 'tracker.archiveteam.org'
@@ -288,24 +288,33 @@ class WgetArgs(object):
             for image in images:
                 photo_splitted = image.split('/')
                 photo_user_id = photo_splitted[0]
+
                 photo_user_response = requests.get('https://www.flickr.com/photos/{0}/'.format(photo_user_id))
                 if photo_user_response.status_code == 404:
                     continue
                 elif len(photo_user_response.text) == 0 \
                       or photo_user_response.status_code != 200:
                     raise Exception('Something went wrong... ABORTING')
+
                 photo_user = re.search(r'<meta\s+property="og:url"\s+content="https://www\.flickr\.com/photos/([^/]+)/"\s+data-dynamic="true">',
                   photo_user_response.text).group(1)
                 photo_id = photo_splitted[1]
+
                 print('Found photo {photo_id} from user {photo_user} with user ID {photo_user_id}.'.format(**locals()))
+
                 wget_args.extend(['--warc-header', 'flickr-photo-item: {image}'.format(**locals())])
                 wget_args.extend(['--warc-header', 'flickr-photo: {photo_id}'.format(**locals())])
                 wget_args.extend(['--warc-header', 'flickr-photo-user-id: {photo_user_id}'.format(**locals())])
                 wget_args.extend(['--warc-header', 'flickr-photo-user: {photo_user}'.format(**locals())])
                 wget_args.extend(['--warc-header', 'flickr-photo-{photo_id}-user: {photo_user}'.format(**locals())])
                 wget_args.append('https://www.flickr.com/photos/{photo_user}/{photo_id}/'.format(**locals()))
-                #wget_args.append('https://www.flickr.com/photos/{photo_user}/{photo_id}/in/photostream/'.format(**locals()))
+                wget_args.append('https://www.flickr.com/photos/{photo_user_id}/{photo_id}/'.format(**locals()))
+                wget_args.append('https://www.flickr.com/photos/{photo_user}/{photo_id}/in/photostream/'.format(**locals()))
+                wget_args.append('https://www.flickr.com/photos/{photo_user_id}/{photo_id}/in/photostream/'.format(**locals()))
+                wget_args.append('https://www.flickr.com/photos/{photo_user}/{photo_id}/in/photostream/lightbox/'.format(**locals()))
+                wget_args.append('https://www.flickr.com/photos/{photo_user_id}/{photo_id}/in/photostream/lightbox/'.format(**locals()))
                 wget_args.append('https://www.flickr.com/photos/{photo_user}/{photo_id}/sizes/'.format(**locals()))
+                wget_args.append('https://www.flickr.com/photos/{photo_user_id}/{photo_id}/sizes/'.format(**locals()))
                 wget_args.append('https://www.flickr.com/video_download.gne?id={photo_id}'.format(**locals()))
                 item['item_value'] += ',' + photo_user + '/' + photo_id
         else:
@@ -347,6 +356,7 @@ pipeline = Pipeline(
             "item_dir": ItemValue("item_dir"),
             "item_value": ItemValue("item_value"),
             "item_type": ItemValue("item_type"),
+            "random_number": str(random.randint(0, 500)),
         }
     ),
     Deduplicate(),
