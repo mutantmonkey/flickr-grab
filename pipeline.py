@@ -68,7 +68,7 @@ if not WGET_LUA:
 #
 # Update this each time you make a non-cosmetic change.
 # It will be added to the WARC files and reported to the tracker.
-VERSION = "20170108.04"
+VERSION = "20170122.01"
 USER_AGENT = 'ArchiveTeam'
 TRACKER_ID = 'flickr'
 TRACKER_HOST = 'tracker.archiveteam.org'
@@ -328,13 +328,13 @@ class WgetArgs(object):
                 wget_args.extend(['--warc-header', 'flickr-photo-user: {photo_user}'.format(**locals())])
                 wget_args.extend(['--warc-header', 'flickr-photo-{photo_id}-user: {photo_user}'.format(**locals())])
                 wget_args.append('https://www.flickr.com/photos/{photo_user}/{photo_id}/'.format(**locals()))
-                wget_args.append('https://www.flickr.com/photos/{photo_user_id}/{photo_id}/'.format(**locals()))
+                #wget_args.append('https://www.flickr.com/photos/{photo_user_id}/{photo_id}/'.format(**locals()))
                 wget_args.append('https://www.flickr.com/photos/{photo_user}/{photo_id}/in/photostream/'.format(**locals()))
-                wget_args.append('https://www.flickr.com/photos/{photo_user_id}/{photo_id}/in/photostream/'.format(**locals()))
+                #wget_args.append('https://www.flickr.com/photos/{photo_user_id}/{photo_id}/in/photostream/'.format(**locals()))
                 wget_args.append('https://www.flickr.com/photos/{photo_user}/{photo_id}/in/photostream/lightbox/'.format(**locals()))
-                wget_args.append('https://www.flickr.com/photos/{photo_user_id}/{photo_id}/in/photostream/lightbox/'.format(**locals()))
+                #wget_args.append('https://www.flickr.com/photos/{photo_user_id}/{photo_id}/in/photostream/lightbox/'.format(**locals()))
                 wget_args.append('https://www.flickr.com/photos/{photo_user}/{photo_id}/sizes/'.format(**locals()))
-                wget_args.append('https://www.flickr.com/photos/{photo_user_id}/{photo_id}/sizes/'.format(**locals()))
+                #wget_args.append('https://www.flickr.com/photos/{photo_user_id}/{photo_id}/sizes/'.format(**locals()))
                 wget_args.append('https://www.flickr.com/video_download.gne?id={photo_id}'.format(**locals()))
                 item['item_value'] += ',' + photo_user + '/' + photo_id
         else:
