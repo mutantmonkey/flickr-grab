@@ -146,7 +146,7 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
   if allowed(url) and not (string.match(url, "^https?://[^/]*staticflickr%.com/") or string.match(url, "^https?://[^/]*yimg%.com")) then
     html = read_file(file)
 
-    if string.match(html, "hermes%-[0-9]%.[0-9]%.[0-9]+") and random_number == 250 then
+    if string.match(html, "hermes%-[0-9]%.[0-9]%.[0-9]+") and random_number == 50 then
       local hermesversion = string.match(html, "(hermes%-[0-9]%.[0-9]%.[0-9]+)")
       for hermesurl in io.open("hermes-list", "r"):lines() do
         local newurl = string.gsub(hermesurl, "{{VERSION}}", hermesversion)
