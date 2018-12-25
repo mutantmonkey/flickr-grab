@@ -19,19 +19,17 @@ import string
 import re
 
 try:
-    import requests
-except:
-    raise Exception("Please install requests with 'pip install requests'.")
-try:
     import warc
 except:
-    raise Exception("Please install warc with 'pip install warc'.")
+    raise Exception("Please install warc with 'sudo pip install warc'.")
 
 import seesaw
 from seesaw.externalprocess import WgetDownload
 from seesaw.pipeline import Pipeline
 from seesaw.project import Project
 from seesaw.util import find_executable
+
+from tornado import httpclient
 
 
 # check the seesaw version
@@ -68,7 +66,7 @@ if not WGET_LUA:
 #
 # Update this each time you make a non-cosmetic change.
 # It will be added to the WARC files and reported to the tracker.
-VERSION = "20170710.01"
+VERSION = "20181225.01"
 USER_AGENT = 'ArchiveTeam'
 TRACKER_ID = 'flickr'
 TRACKER_HOST = 'tracker.archiveteam.org'
@@ -134,6 +132,7 @@ class PrepareDirectories(SimpleTask):
             time.strftime("%Y%m%d-%H%M%S"))
 
         open("%(item_dir)s/%(warc_file_base)s.warc.gz" % item, "w").close()
+        open("%(item_dir)s/%(warc_file_base)s_data.txt" % item, "w").close()
 
 
 class Deduplicate(SimpleTask):
@@ -155,7 +154,8 @@ class Deduplicate(SimpleTask):
         del info_record.header['WARC-Block-Digest']
         warc_output.write_record(warc.WARCRecord(
             payload=info_record.payload.read(),
-            header=info_record.header))
+            header=info_record.header
+        ))
 
         while warc_input_size > warc_input.tell():
             for record in warc_input:
@@ -221,6 +221,8 @@ class MoveFiles(SimpleTask):
 
         os.rename("%(item_dir)s/%(warc_file_base)s-deduplicated.warc.gz" % item,
             "%(data_dir)s/%(warc_file_base)s-deduplicated.warc.gz" % item)
+        os.rename("%(item_dir)s/%(warc_file_base)s_data.txt" % item,
+            "%(data_dir)s/%(warc_file_base)s_data.txt" % item)
 
         shutil.rmtree("%(item_dir)s" % item)
 
@@ -275,68 +277,46 @@ class WgetArgs(object):
         ]
         
         item_name = item['item_name']
-        assert ':' in item_name
         item_type, item_value = item_name.split(':', 1)
         
         item['item_type'] = item_type
         item['item_value'] = item_value
-        
-        assert item_type in ('images')
 
-        if item_type == 'images':
-            images = item_value.split(',')
-            for image in images:
-                photo_splitted = image.split('/')
-                photo_user_id = photo_splitted[0]
-
-                tries = 0
-                while tries < 15:
-                    photo_user_response = requests.get('https://www.flickr.com/photos/{0}/'.format(photo_user_id))
-
-                    if photo_user_response.status_code == 418:
-                        wait_time = random.randint(1, 15)
-                        print('Flickr turned into a teapot. Retrying for coffee in {0} seconds.'.format(wait_time))
-                        sys.stdout.flush()
-                        tries += 1
-                        time.sleep(wait_time)
-                        continue
-                    elif (len(photo_user_response.text) == 0 \
-                          or photo_user_response.status_code != 200) \
-                          and not photo_user_response.status_code == 404:
-                        print('Photo {0}.'.format(photo_user_id))
-                        print('Received status code {0}.'.format(photo_user_response.status_code))
-                        print('Received {0} bytes.'.format(len(photo_user_response.text)))
-                        raise Exception('Something went wrong... ABORTING')
-
-                    break
-                else:
-                    raise Exception('Failed to brew coffee with flickr... :(')
-
-                if photo_user_response.status_code == 404:
-                    continue
-
-                photo_user = re.search(r'<meta\s+property="og:url"\s+content="https://www\.flickr\.com/photos/([^/]+)/"\s+data-dynamic="true">',
-                  photo_user_response.text).group(1)
-                photo_id = photo_splitted[1]
-
-                print('Found photo {photo_id} from user {photo_user} with user ID {photo_user_id}.'.format(**locals()))
-                sys.stdout.flush()
-
-                wget_args.extend(['--warc-header', 'flickr-photo-item: {image}'.format(**locals())])
-                wget_args.extend(['--warc-header', 'flickr-photo: {photo_id}'.format(**locals())])
-                wget_args.extend(['--warc-header', 'flickr-photo-user-id: {photo_user_id}'.format(**locals())])
-                wget_args.extend(['--warc-header', 'flickr-photo-user: {photo_user}'.format(**locals())])
-                wget_args.extend(['--warc-header', 'flickr-photo-{photo_id}-user: {photo_user}'.format(**locals())])
-                wget_args.append('https://www.flickr.com/photos/{photo_user}/{photo_id}/'.format(**locals()))
-                #wget_args.append('https://www.flickr.com/photos/{photo_user_id}/{photo_id}/'.format(**locals()))
-                wget_args.append('https://www.flickr.com/photos/{photo_user}/{photo_id}/in/photostream/'.format(**locals()))
-                #wget_args.append('https://www.flickr.com/photos/{photo_user_id}/{photo_id}/in/photostream/'.format(**locals()))
-                wget_args.append('https://www.flickr.com/photos/{photo_user}/{photo_id}/in/photostream/lightbox/'.format(**locals()))
-                #wget_args.append('https://www.flickr.com/photos/{photo_user_id}/{photo_id}/in/photostream/lightbox/'.format(**locals()))
-                wget_args.append('https://www.flickr.com/photos/{photo_user}/{photo_id}/sizes/'.format(**locals()))
-                #wget_args.append('https://www.flickr.com/photos/{photo_user_id}/{photo_id}/sizes/'.format(**locals()))
-                wget_args.append('https://www.flickr.com/video_download.gne?id={photo_id}'.format(**locals()))
-                item['item_value'] += ',' + photo_user + '/' + photo_id
+        if item_type == 'user':
+            wget_args.extend(['--warc-header', 'flickr-user: {}'.format(item_value)])
+            wget_args.append('https://www.flickr.com/photos/{}/'.format(item_value))
+        if item_type == 'disco':
+            http_client = httpclient.HTTPClient()
+            try:
+                r = http_client.fetch('https://www.flickr.com/photos/{}/'.format(item_value), method='GET')
+            except httpclient.HTTPError as e:
+                r = e.response
+            if r.code == 404:
+                print('Account was deleted.')
+                wget_args.append('https://www.flickr.com/photos/{}/'.format(item_value))
+            elif r.code != 200:
+                raise Exception('Bad status code, {}.'.format(r.code))
+            else:
+                text = r.body.decode('utf-8', 'ignore')
+                api_key = re.search('root\.YUI_config\.flickr\.api\.site_key\s*=\s*"([^"]+)";', text).group(1)
+                req_id = re.search('root\.YUI_config\.flickr\.request\.id\s*=\s*"([^"]+)";', text).group(1)
+                item.log_output('Found api_key {} and req_id {}.'.format(api_key, req_id))
+                wget_args.append('https://api.flickr.com/services/rest?per_page=50&page=1&extras=can_addmeta%2Ccan_comment%2Ccan_download%2Ccan_share%2Ccontact%2Ccount_comments%2Ccount_faves%2Ccount_views%2Cdate_taken%2Cdate_upload%2Cdescription%2Cicon_urls_deep%2Cisfavorite%2Cispro%2Clicense%2Cmedia%2Cneeds_interstitial%2Cowner_name%2Cowner_datecreate%2Cpath_alias%2Crealname%2Crotation%2Csafety_level%2Csecret_k%2Csecret_h%2Curl_c%2Curl_f%2Curl_h%2Curl_k%2Curl_l%2Curl_m%2Curl_n%2Curl_o%2Curl_q%2Curl_s%2Curl_sq%2Curl_t%2Curl_z%2Cvisibility%2Cvisibility_source%2Co_dims%2Cpubliceditability&get_user_info=1&jump_to=&user_id={}&view_as=use_pref&sort=use_pref&viewerNSID=&method=flickr.people.getPhotos&csrf=&api_key={}&format=json&hermes=1&hermesClient=1&reqId={}&nojsoncallback=1'.format(item_value, api_key, req_id))
+            http_client.close()
+        elif item_type == 'photos':
+            for image in item_value.split(','):
+                user, photo_id = image.split('/')
+                wget_args.extend(['--warc-header', 'flickr-photo-item: {}'.format(image)])
+                wget_args.extend(['--warc-header', 'flickr-photo: {}'.format(photo_id)])
+                wget_args.extend(['--warc-header', 'flickr-photo-user: {}'.format(user)])
+                wget_args.extend(['--warc-header', 'flickr-photo-{}-user: {}'.format(photo_id, user)])
+                wget_args.append('https://www.flickr.com/photos/{}/{}/'.format(user, photo_id))
+                wget_args.append('https://www.flickr.com/photos/{}/{}/in/photostream/'.format(user, photo_id))
+                wget_args.append('https://www.flickr.com/photos/{}/{}/in/photostream/lightbox/'.format(user, photo_id))
+                wget_args.append('https://www.flickr.com/photos/{}/{}/lightbox/'.format(user, photo_id))
+                wget_args.append('https://www.flickr.com/photos/{}/{}/sizes/'.format(user, photo_id))
+                wget_args.append('https://www.flickr.com/video_download.gne?id={}'.format(photo_id))
+                item['item_value'] += ',' + user + '/' + photo_id
         else:
             raise Exception('Unknown item')
         
@@ -376,7 +356,7 @@ pipeline = Pipeline(
             "item_dir": ItemValue("item_dir"),
             "item_value": ItemValue("item_value"),
             "item_type": ItemValue("item_type"),
-            "random_number": str(random.randint(0, 100)),
+            'warc_file_base': ItemValue('warc_file_base')
         }
     ),
     Deduplicate(),
@@ -389,7 +369,7 @@ pipeline = Pipeline(
         },
         id_function=stats_id_function,
     ),
-    MoveFiles(),
+    #MoveFiles(),
     LimitConcurrent(NumberConfigValue(min=1, max=4, default="1",
         name="shared:rsync_threads", title="Rsync threads",
         description="The maximum number of concurrent uploads."),
@@ -398,7 +378,8 @@ pipeline = Pipeline(
             downloader=downloader,
             version=VERSION,
             files=[
-                ItemInterpolation("%(data_dir)s/%(warc_file_base)s-deduplicated.warc.gz")
+                ItemInterpolation("%(data_dir)s/%(warc_file_base)s-deduplicated.warc.gz"),
+                ItemInterpolation("%(data_dir)s/%(warc_file_base)s_data.txt")
             ],
             rsync_target_source_path=ItemInterpolation("%(data_dir)s/"),
             rsync_extra_args=[
@@ -413,3 +394,4 @@ pipeline = Pipeline(
         stats=ItemValue("stats")
     )
 )
+
