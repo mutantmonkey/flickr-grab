@@ -1,7 +1,7 @@
 #!/bin/bash
 
-echo "Installing warc"
-if ! sudo pip install warc
+echo "Installing warcio"
+if ! sudo pip install warcio --upgrade
 then
   exit 1
 fi

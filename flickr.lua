@@ -21,7 +21,11 @@ for ignore in io.open("ignore-list", "r"):lines() do
   downloaded[ignore] = true
 end
 
-users[item_value] = true
+if item_type == "users" then
+  users[item_value] = true
+elseif item_type == "photos" then
+  baseuser = string.match(item_value, "([^%-]+)")
+end
 
 load_json_file = function(file)
   if file then
@@ -45,7 +49,10 @@ end
 allowed = function(url, parenturl)
   if string.match(url, "'+")
       or string.match(url, "[<>\\%*%$;%^%[%],%(%){}]")
-      or string.match(url, "&?giftPro$") then
+      or string.match(url, "&?giftPro$")
+      or string.match(url, "^https?://y3%.analytics%.yahoo%.com")
+      or string.match(url, "^https?://geo%.yahoo%.com")
+      or string.match(url, "^https?://sb%.scorecardresearch%.com") then
     return false
   end
 
@@ -90,6 +97,12 @@ allowed = function(url, parenturl)
         return true
       end
     end
+  elseif item_type == "photos" then
+    for i in string.gmatch(url, "([0-9]+)") do
+      if users[i] then
+        return true
+      end
+    end
   end
   
   return false
@@ -99,9 +112,16 @@ wget.callbacks.download_child_p = function(urlpos, parent, depth, start_url_pars
   local url = urlpos["url"]["url"]
   local html = urlpos["link_expect_html"]
 
-  if string.match(url, "^https?://[^%.]+%.staticflickr%.com/[0-9]+/[0-9]+/[0-9]+_[0-9a-z_]+%.jpg")
-      or string.match(url, "^https?://[^%.]+%.staticflickr%.com/[0-9]+/?[0-9]*/buddyicons/[^%.]+%.jpg") then
+  if string.match(url, "^https?://y3%.analytics%.yahoo%.com")
+      or string.match(url, "^https?://geo%.yahoo%.com") then
     return false
+  end
+
+  if item_type == "user" then
+    if string.match(url, "^https?://[^%.]+%.staticflickr%.com/[0-9]+/[0-9]+/[0-9]+_[0-9a-z_]+%.jpg")
+        or string.match(url, "^https?://[^%.]+%.staticflickr%.com/[0-9]+/?[0-9]*/buddyicons/[^%.]+%.jpg") then
+      return false
+    end
   end
   
   if (downloaded[url] ~= true and addedtolist[url] ~= true)
@@ -155,7 +175,6 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     elseif not (string.match(newurl, "^https?:\\?/\\?//?/?")
        or string.match(newurl, "^[/\\]")
        or string.match(newurl, "^[jJ]ava[sS]cript:")
-
        or string.match(newurl, "^[mM]ail[tT]o:")
        or string.match(newurl, "^vine:")
        or string.match(newurl, "^android%-app:")
@@ -165,7 +184,13 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     end
   end
 
-  if allowed(url, nil) then
+  if string.match(url, "^https?://www%.flickr%.com/photos/[^/]+/[0-9]+/$") then
+    if string.match(url, "^https?://[^/]+/[^/]+/([^/]+)/") == baseuser then
+      users[string.match(url, "^https?://[^/]+/[^/]+/[^/]+/([0-9]+)/")] = true
+    end
+  end
+
+  if allowed(url, nil) and not string.match(url, "^https?://[^/]*staticflickr%.com/") then
     html = read_file(file)
     if item_type == "disco" and string.match(url, "^https?://api%.flickr%.com/services/rest") then
       local json = load_json_file(html)

@@ -19,9 +19,11 @@ import string
 import re
 
 try:
-    import warc
+    import warcio
+    from warcio.archiveiterator import ArchiveIterator
+    from warcio.warcwriter import WARCWriter
 except:
-    raise Exception("Please install warc with 'sudo pip install warc'.")
+    raise Exception("Please install warc with 'sudo pip install warcio --upgrade'.")
 
 import seesaw
 from seesaw.externalprocess import WgetDownload
@@ -66,7 +68,7 @@ if not WGET_LUA:
 #
 # Update this each time you make a non-cosmetic change.
 # It will be added to the WARC files and reported to the tracker.
-VERSION = "20181225.03"
+VERSION = "20190104.01"
 USER_AGENT = 'ArchiveTeam'
 TRACKER_ID = 'flickr'
 TRACKER_HOST = 'tracker.archiveteam.org'
@@ -140,74 +142,55 @@ class Deduplicate(SimpleTask):
         SimpleTask.__init__(self, "Deduplicate")
 
     def process(self, item):
-        hashes = {}
+        digests = {}
         input_filename = "%(item_dir)s/%(warc_file_base)s.warc.gz" % item
         output_filename = "%(item_dir)s/%(warc_file_base)s-deduplicated.warc.gz" % item
-
-        warc_input = warc.WARCFile(input_filename)
-        warc_input_size = os.path.getsize(input_filename)
-        warc_output = warc.WARCFile(output_filename, 'w')
-        dedup_log = []
-
-        info_record = warc_input.read_record()
-        info_record.header['WARC-Filename'] = "%(warc_file_base)s-deduplicated.warc.gz" % item
-        del info_record.header['WARC-Block-Digest']
-        warc_output.write_record(warc.WARCRecord(
-            payload=info_record.payload.read(),
-            header=info_record.header
-        ))
-
-        while warc_input_size > warc_input.tell():
-            for record in warc_input:
-                if record.type == 'response':
-                    hash_ = record.header.get('WARC-Payload-Digest').split(':', 1)[1]
-                    if hash_ in hashes:
-                        headers = []
-                        payload_ = record.payload.read()
-                        for line in payload_.splitlines():
-                            if line in ['\r\n', '\n', '']:
-                                break
-                            headers.append(line.strip())
-                        payload = '\r\n'.join(headers) + '\r\n'*2
-                        if not ('Content-Length: 0' in payload or \
-                              'content-length: 0' in payload):
-                            record.header['Content-Length'] = str(len(payload))
-                            record.header['WARC-Refers-To'] = hashes[hash_][0]
-                            record.header['WARC-Refers-To-Date'] = hashes[hash_][1]
-                            record.header['WARC-Refers-To-Target-URI'] = \
-                                hashes[hash_][2]
-                            record.header['WARC-Type'] = 'revisit'
-                            record.header['WARC-Truncated'] = 'length'
-                            record.header['WARC-Profile'] = 'http://netpreserve' \
-                                '.org/warc/1.0/revisit/identical-payload-digest'
-                            del record.header['WARC-Block-Digest']
-                            dedup_log.append('WARC-Record-ID:{dID}; ' \
-                                'WARC-Target-URI:{dURL}; WARC-Date:{dDate} ' \
-                                'duplicate of WARC-Record-ID:{oID}; ' \
-                                'WARC-Target-URI:{oURL}; WARC-Date:{oDate}\r\n' \
-                                .format(dID=record.header['WARC-Record-ID'],
-                                dURL=record.header['WARC-Target-URI'],
-                                dDate=record.header['WARC-Date'],
-                                oID=hashes[hash_][0], oURL=hashes[hash_][2],
-                                oDate=hashes[hash_][1]))
-                            record = warc.WARCRecord(header=record.header,
-                                payload=payload, defaults=False)
-                        else:
-                            record = warc.WARCRecord(header=record.header,
-                                payload=payload_, defaults=False)
+        with open(input_filename, 'rb') as f_in, \
+                open(output_filename, 'wb') as f_out:
+            writer = WARCWriter(filebuf=f_out, gzip=True)
+            for record in ArchiveIterator(f_in):
+                url = record.rec_headers.get_header('WARC-Target-URI')
+                if url is not None and url.startswith('<'):
+                    url = re.search('^<(.+)>$', url).group(1)
+                    record.rec_headers.replace_header('WARC-Target-URI', url)
+                if record.rec_headers.get_header('WARC-Type') == 'response':
+                    digest = record.rec_headers.get_header('WARC-Payload-Digest')
+                    if digest in digests:
+                        writer.write_record(
+                            self._record_response_to_revisit(writer, record,
+                                                             digests[digest])
+                        )
                     else:
-                        hashes[hash_] = (record.header.get('WARC-Record-ID'),
-                            record.header.get('WARC-Date'),
-                            record.header.get('WARC-Target-URI'))
-                        record = warc.WARCRecord(
-                            header=record.header,
-                            payload=record.payload.read(), defaults=False)
+                        digests[digest] = (
+                            record.rec_headers.get_header('WARC-Record-ID'),
+                            record.rec_headers.get_header('WARC-Date'),
+                            record.rec_headers.get_header('WARC-Target-URI')
+                        )
+                        writer.write_record(record)
+                elif record.rec_headers.get_header('WARC-Type') == 'warcinfo':
+                    record.rec_headers.replace_header('WARC-Filename', output_filename)
+                    writer.write_record(record)
                 else:
-                    record = warc.WARCRecord(header=record.header,
-                        payload=record.payload.read(), defaults=False)
-                warc_output.write_record(record)
-        with open("%(item_dir)s/deduplicate.log" % item, 'w') as f:
-            f.write('\r\n'.join(dedup_log))
+                    writer.write_record(record)
+
+    def _record_response_to_revisit(self, writer, record, duplicate):
+        warc_headers = record.rec_headers
+        warc_headers.replace_header('WARC-Refers-To', duplicate[0])
+        warc_headers.replace_header('WARC-Refers-To-Date', duplicate[1])
+        warc_headers.replace_header('WARC-Refers-To-Target-URI', duplicate[2])
+        warc_headers.replace_header('WARC-Type', 'revisit')
+        warc_headers.replace_header('WARC-Truncated', 'length')
+        warc_headers.replace_header('WARC-Profile',
+                                    'http://netpreserve.org/warc/1.0/' \
+                                    'revisit/identical-payload-digest')
+        warc_headers.remove_header('WARC-Block-Digest')
+        warc_headers.remove_header('Content-Length')
+        return writer.create_warc_record(
+            record.rec_headers.get_header('WARC-Target-URI'),
+            'revisit',
+            warc_headers=warc_headers,
+            http_headers=record.http_headers
+        )
 
 
 class MoveFiles(SimpleTask):
@@ -282,11 +265,13 @@ class WgetArgs(object):
         item['item_type'] = item_type
         item['item_value'] = item_value
 
+        http_client = httpclient.HTTPClient()
+
         if item_type == 'user':
             wget_args.extend(['--warc-header', 'flickr-user: {}'.format(item_value)])
             wget_args.append('https://www.flickr.com/photos/{}/'.format(item_value))
         if item_type == 'disco':
-            http_client = httpclient.HTTPClient()
+            raise Exception('Skipping...')
             try:
                 r = http_client.fetch('https://www.flickr.com/photos/{}/'.format(item_value), method='GET')
             except httpclient.HTTPError as e:
@@ -302,10 +287,11 @@ class WgetArgs(object):
                 req_id = re.search('root\.YUI_config\.flickr\.request\.id\s*=\s*"([^"]+)";', text).group(1)
                 item.log_output('Found api_key {} and req_id {}.'.format(api_key, req_id))
                 wget_args.append('https://api.flickr.com/services/rest?per_page=50&page=1&extras=can_addmeta%2Ccan_comment%2Ccan_download%2Ccan_share%2Ccontact%2Ccount_comments%2Ccount_faves%2Ccount_views%2Cdate_taken%2Cdate_upload%2Cdescription%2Cicon_urls_deep%2Cisfavorite%2Cispro%2Clicense%2Cmedia%2Cneeds_interstitial%2Cowner_name%2Cowner_datecreate%2Cpath_alias%2Crealname%2Crotation%2Csafety_level%2Csecret_k%2Csecret_h%2Curl_c%2Curl_f%2Curl_h%2Curl_k%2Curl_l%2Curl_m%2Curl_n%2Curl_o%2Curl_q%2Curl_s%2Curl_sq%2Curl_t%2Curl_z%2Cvisibility%2Cvisibility_source%2Co_dims%2Cpubliceditability&get_user_info=1&jump_to=&user_id={}&view_as=use_pref&sort=use_pref&viewerNSID=&method=flickr.people.getPhotos&csrf=&api_key={}&format=json&hermes=1&hermesClient=1&reqId={}&nojsoncallback=1'.format(item_value, api_key, req_id))
-            http_client.close()
         elif item_type == 'photos':
-            for image in item_value.split(','):
-                user, photo_id = image.split('/')
+            r = http_client.fetch('https://pastebin.com/raw/cU11gPXY', method='GET')
+            for image in r.body.decode('utf-8', 'ignore').splitlines():
+                image = image.strip()
+                user, photo_id = image.split(':', 1)[1].split('/')
                 wget_args.extend(['--warc-header', 'flickr-photo-item: {}'.format(image)])
                 wget_args.extend(['--warc-header', 'flickr-photo: {}'.format(photo_id)])
                 wget_args.extend(['--warc-header', 'flickr-photo-user: {}'.format(user)])
@@ -319,6 +305,8 @@ class WgetArgs(object):
                 item['item_value'] += ',' + user + '/' + photo_id
         else:
             raise Exception('Unknown item')
+
+        http_client.close()
         
         if 'bind_address' in globals():
             wget_args.extend(['--bind-address', globals()['bind_address']])
@@ -386,6 +374,7 @@ pipeline = Pipeline(
                 "--recursive",
                 "--partial",
                 "--partial-dir", ".rsync-tmp",
+                "--min-size", "1"
             ]
             ),
     ),
