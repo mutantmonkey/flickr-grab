@@ -24,7 +24,7 @@ end
 if item_type == "users" then
   users[item_value] = true
 elseif item_type == "photos" then
-  baseuser = string.match(item_value, "([^%-]+)")
+  baseuser = string.match(item_value, "([^/]+)")
 end
 
 load_json_file = function(file)
@@ -52,6 +52,7 @@ allowed = function(url, parenturl)
       or string.match(url, "&?giftPro$")
       or string.match(url, "^https?://y3%.analytics%.yahoo%.com")
       or string.match(url, "^https?://geo%.yahoo%.com")
+      or string.match(url, "^https?://www%.facebook%.com")
       or string.match(url, "^https?://sb%.scorecardresearch%.com") then
     return false
   end
@@ -295,11 +296,13 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
 end
 
 wget.callbacks.finish = function(start_time, end_time, wall_time, numurls, total_downloaded_bytes, total_download_time)
-  local file = io.open(item_dir .. '/' .. warc_file_base .. '_data.txt', 'w')
-  for photo, _ in pairs(discovered_photos) do
-    file:write("photo:" .. item_value .. "/" .. photo .. "\n")
+  if item_type == "disco" then
+    local file = io.open(item_dir .. '/' .. warc_file_base .. '_data.txt', 'w')
+    for photo, _ in pairs(discovered_photos) do
+      file:write("photo:" .. item_value .. "/" .. photo .. "\n")
+    end
+    file:close()
   end
-  file:close()
 end
 
 wget.callbacks.before_exit = function(exit_status, exit_status_string)

@@ -68,7 +68,7 @@ if not WGET_LUA:
 #
 # Update this each time you make a non-cosmetic change.
 # It will be added to the WARC files and reported to the tracker.
-VERSION = "20190104.01"
+VERSION = "20190107.01"
 USER_AGENT = 'ArchiveTeam'
 TRACKER_ID = 'flickr'
 TRACKER_HOST = 'tracker.archiveteam.org'
@@ -288,21 +288,19 @@ class WgetArgs(object):
                 item.log_output('Found api_key {} and req_id {}.'.format(api_key, req_id))
                 wget_args.append('https://api.flickr.com/services/rest?per_page=50&page=1&extras=can_addmeta%2Ccan_comment%2Ccan_download%2Ccan_share%2Ccontact%2Ccount_comments%2Ccount_faves%2Ccount_views%2Cdate_taken%2Cdate_upload%2Cdescription%2Cicon_urls_deep%2Cisfavorite%2Cispro%2Clicense%2Cmedia%2Cneeds_interstitial%2Cowner_name%2Cowner_datecreate%2Cpath_alias%2Crealname%2Crotation%2Csafety_level%2Csecret_k%2Csecret_h%2Curl_c%2Curl_f%2Curl_h%2Curl_k%2Curl_l%2Curl_m%2Curl_n%2Curl_o%2Curl_q%2Curl_s%2Curl_sq%2Curl_t%2Curl_z%2Cvisibility%2Cvisibility_source%2Co_dims%2Cpubliceditability&get_user_info=1&jump_to=&user_id={}&view_as=use_pref&sort=use_pref&viewerNSID=&method=flickr.people.getPhotos&csrf=&api_key={}&format=json&hermes=1&hermesClient=1&reqId={}&nojsoncallback=1'.format(item_value, api_key, req_id))
         elif item_type == 'photos':
-            r = http_client.fetch('https://pastebin.com/raw/cU11gPXY', method='GET')
-            for image in r.body.decode('utf-8', 'ignore').splitlines():
-                image = image.strip()
-                user, photo_id = image.split(':', 1)[1].split('/')
-                wget_args.extend(['--warc-header', 'flickr-photo-item: {}'.format(image)])
-                wget_args.extend(['--warc-header', 'flickr-photo: {}'.format(photo_id)])
+            r = http_client.fetch('http://195.201.219.254/' + item_value, method='GET')
+            user = item_value.split('/')[0]
+            for i in r.body.decode('utf-8', 'ignore').splitlines():
+                i = i.strip()
+                wget_args.extend(['--warc-header', 'flickr-photo: {}'.format(i)])
                 wget_args.extend(['--warc-header', 'flickr-photo-user: {}'.format(user)])
-                wget_args.extend(['--warc-header', 'flickr-photo-{}-user: {}'.format(photo_id, user)])
-                wget_args.append('https://www.flickr.com/photos/{}/{}/'.format(user, photo_id))
-                wget_args.append('https://www.flickr.com/photos/{}/{}/in/photostream/'.format(user, photo_id))
-                wget_args.append('https://www.flickr.com/photos/{}/{}/in/photostream/lightbox/'.format(user, photo_id))
-                wget_args.append('https://www.flickr.com/photos/{}/{}/lightbox/'.format(user, photo_id))
-                wget_args.append('https://www.flickr.com/photos/{}/{}/sizes/'.format(user, photo_id))
-                wget_args.append('https://www.flickr.com/video_download.gne?id={}'.format(photo_id))
-                item['item_value'] += ',' + user + '/' + photo_id
+                wget_args.extend(['--warc-header', 'flickr-photo-{}-user: {}'.format(i, user)])
+                wget_args.append('https://www.flickr.com/photos/{}/{}/'.format(user, i))
+                wget_args.append('https://www.flickr.com/photos/{}/{}/in/photostream/'.format(user, i))
+                wget_args.append('https://www.flickr.com/photos/{}/{}/in/photostream/lightbox/'.format(user, i))
+                wget_args.append('https://www.flickr.com/photos/{}/{}/lightbox/'.format(user, i))
+                wget_args.append('https://www.flickr.com/photos/{}/{}/sizes/'.format(user, i))
+                wget_args.append('https://www.flickr.com/video_download.gne?id={}'.format(i))
         else:
             raise Exception('Unknown item')
 
