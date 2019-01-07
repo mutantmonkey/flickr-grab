@@ -99,6 +99,10 @@ allowed = function(url, parenturl)
       end
     end
   elseif item_type == "photos" then
+    if string.match(url, "^https?://www%.flickr%.com/photos/[^/]+/with/[0-9]+/")
+        or string.match(url, "^https?://www%.flickr%.com/photos/[^/]+/[0-9]+$") then
+      return false
+    end
     for i in string.gmatch(url, "([0-9]+)") do
       if users[i] then
         return true
