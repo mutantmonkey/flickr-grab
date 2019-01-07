@@ -53,7 +53,8 @@ allowed = function(url, parenturl)
       or string.match(url, "^https?://y3%.analytics%.yahoo%.com")
       or string.match(url, "^https?://geo%.yahoo%.com")
       or string.match(url, "^https?://www%.facebook%.com")
-      or string.match(url, "^https?://sb%.scorecardresearch%.com") then
+      or string.match(url, "^https?://sb%.scorecardresearch%.com")
+      or string.match(url, "^https?://www%.flickr%.com/services/oembed") then
     return false
   end
 
