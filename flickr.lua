@@ -99,7 +99,7 @@ allowed = function(url, parenturl)
         return true
       end
     end
-  elseif item_type == "photos" then
+  elseif item_type == "photos" or item_type == "photoscc" then
     if string.match(url, "^https?://www%.flickr%.com/photos/[^/]+/with/[0-9]+/")
         or string.match(url, "^https?://www%.flickr%.com/photos/[^/]+/[0-9]+$") then
       return false
@@ -194,9 +194,7 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
   end
 
   if string.match(url, "^https?://www%.flickr%.com/photos/[^/]+/[0-9]+/$") then
-    if string.match(url, "^https?://[^/]+/[^/]+/([^/]+)/") == baseuser then
-      users[string.match(url, "^https?://[^/]+/[^/]+/[^/]+/([0-9]+)/")] = true
-    end
+    users[string.match(url, "^https?://[^/]+/[^/]+/[^/]+/([0-9]+)/")] = true
   end
 
   if allowed(url, nil) and not string.match(url, "^https?://[^/]*staticflickr%.com/") then
