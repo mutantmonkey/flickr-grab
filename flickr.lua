@@ -199,6 +199,10 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
 
   if allowed(url, nil) and not string.match(url, "^https?://[^/]*staticflickr%.com/") then
     html = read_file(file)
+    if string.match(html, "<h3>We're having some trouble displaying this photo at the moment%. Please try again%.</h3>") then
+      print("Flickr is having problems!")
+      abortgrab = true
+    end
     if item_type == "disco" and string.match(url, "^https?://api%.flickr%.com/services/rest") then
       local json = load_json_file(html)
       if string.match(url, "&page=1&") then
