@@ -68,7 +68,7 @@ if not WGET_LUA:
 #
 # Update this each time you make a non-cosmetic change.
 # It will be added to the WARC files and reported to the tracker.
-VERSION = "20190109.04"
+VERSION = "20190111.01"
 USER_AGENT = 'ArchiveTeam'
 TRACKER_ID = 'flickr'
 TRACKER_HOST = 'tracker.archiveteam.org'
@@ -376,6 +376,7 @@ pipeline = Pipeline(
             ],
             rsync_target_source_path=ItemInterpolation("%(data_dir)s/"),
             rsync_extra_args=[
+                "--sockopts=SO_SNDBUF=8388608,SO_RCVBUF=8388608", # 02:50 <Kenshin> the extra options should improve rsync speeds when the latency is higher
                 "--recursive",
                 "--partial",
                 "--partial-dir", ".rsync-tmp",
