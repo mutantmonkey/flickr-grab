@@ -58,6 +58,17 @@ allowed = function(url, parenturl)
     return false
   end
 
+  local tested = {}
+  for s in string.gmatch(url, "([^/]+)") do
+    if tested[s] == nil then
+      tested[s] = 0
+    end
+    if tested[s] == 6 then
+      return false
+    end
+    tested[s] = tested[s] + 1
+  end
+
   if item_type == "disco" then
     if string.match(url, "^https?://api%.flickr%.com/services/rest") then
       return true
