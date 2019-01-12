@@ -215,14 +215,34 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
       end
       return urls
     end
+    if string.match(html, '"sizes":{.-}}') then
+      local sizes = load_json_file(string.match(html, '"sizes":({.-}})'))
+      local largest = nil
+      if sizes["o"] then
+        largest = "o"
+      end
+      for size, data in pairs(sizes) do
+        if largest == nil then
+          largest = size
+        else
+          if data["width"] > sizes[largest]["width"] then
+            largest = size
+          end
+        end
+      end
+      checknewurl(sizes[largest]["displayUrl"])
+      checknewurl(sizes[largest]["url"])
+    end
     for newurl in string.gmatch(string.gsub(html, "&quot;", '"'), '([^"]+)') do
-      checknewurl(newurl)
+      if not string.match(newurl, "^\\/\\/") then
+        checknewurl(newurl)
+      end
     end
     for newurl in string.gmatch(string.gsub(html, "&#039;", "'"), "([^']+)") do
       checknewurl(newurl)
     end
     for newurl in string.gmatch(html, ">%s*([^<%s]+)") do
-       checknewurl(newurl)
+      checknewurl(newurl)
     end
     for newurl in string.gmatch(html, "[^%-]href='([^']+)'") do
       checknewshorturl(newurl)
