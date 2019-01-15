@@ -133,7 +133,7 @@ class PrepareDirectories(SimpleTask):
         item["warc_file_base"] = "%s-%s-%s" % (self.warc_prefix, item_hash,
             time.strftime("%Y%m%d-%H%M%S"))
 
-        open("%(item_dir)s/%(warc_file_base)s.warc.gz" % item, "w").close()
+        open("%(item_dir)s/%(warc_file_base)s.warc" % item, "w").close()
         open("%(item_dir)s/%(warc_file_base)s_data.txt" % item, "w").close()
 
 
@@ -143,7 +143,7 @@ class Deduplicate(SimpleTask):
 
     def process(self, item):
         digests = {}
-        input_filename = "%(item_dir)s/%(warc_file_base)s.warc.gz" % item
+        input_filename = "%(item_dir)s/%(warc_file_base)s.warc" % item
         output_filename = "%(item_dir)s/%(warc_file_base)s-deduplicated.warc.gz" % item
         with open(input_filename, 'rb') as f_in, \
                 open(output_filename, 'wb') as f_out:
@@ -198,10 +198,6 @@ class MoveFiles(SimpleTask):
         SimpleTask.__init__(self, "MoveFiles")
 
     def process(self, item):
-        # NEW for 2014! Check if wget was compiled with zlib support
-        if os.path.exists("%(item_dir)s/%(warc_file_base)s.warc" % item):
-            raise Exception('Please compile wget with zlib support!')
-
         os.rename("%(item_dir)s/%(warc_file_base)s-deduplicated.warc.gz" % item,
             "%(data_dir)s/%(warc_file_base)s-deduplicated.warc.gz" % item)
         os.rename("%(item_dir)s/%(warc_file_base)s_data.txt" % item,
@@ -257,6 +253,7 @@ class WgetArgs(object):
             "--warc-header", "operator: Archive Team",
             "--warc-header", "flickr-dld-script-version: " + VERSION,
             "--warc-header", ItemInterpolation("flickr-item: %(item_name)s"),
+            "--no-warc-compression",
         ]
         
         item_name = item['item_name']
@@ -380,7 +377,9 @@ pipeline = Pipeline(
                 "--recursive",
                 "--partial",
                 "--partial-dir", ".rsync-tmp",
-                "--min-size", "1"
+                "--min-size", "1",
+                "--no-compress",
+                "--compress-level=0"
             ]
             ),
     ),
