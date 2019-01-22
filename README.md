@@ -84,6 +84,15 @@ Ensure that you have the CentOS equivalent of bzip2 installed as well. You will 
     pip install --upgrade seesaw
     [... pretty much the same as above ...]
 
+### For Alpine Linux:
+
+    apk add lua5.1 git python bzip2 bash rsync gcc libc-dev lua5.1-dev zlib-dev gnutls-dev autoconf flex make
+    python -m ensurepip
+    pip install -U seesaw warcio
+    git clone https://github.com/ArchiveTeam/flickr-grab
+    cd flickr-grab; ./get-wget-lua.sh
+    run-pipeline pipeline.py --concurrent 2 --address '127.0.0.1' YOURNICKHERE
+
 ### For OS X:
 
 You need Homebrew. Ensure that you have the OS X equivalent of bzip2 installed as well.
