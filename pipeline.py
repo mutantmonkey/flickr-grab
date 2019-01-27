@@ -68,7 +68,7 @@ if not WGET_LUA:
 #
 # Update this each time you make a non-cosmetic change.
 # It will be added to the WARC files and reported to the tracker.
-VERSION = "20190121.01"
+VERSION = "20190127.01"
 USER_AGENT = 'ArchiveTeam'
 TRACKER_ID = 'flickr'
 TRACKER_HOST = 'tracker.archiveteam.org'
@@ -300,7 +300,8 @@ class WgetArgs(object):
             r = http_client.fetch('http://195.201.219.254/' + item_value, method='GET')
             for s in r.body.decode('utf-8', 'ignore').splitlines():
                 if s[0:22] == 'www.flickr.com/photos/':
-                    s = s[22:]
+                    s = s[22:].rstrip('/')
+                print(s)
                 user, i = s.strip().split('/')
                 wget_args.extend(['--warc-header', 'flickr-photo: {}'.format(i)])
                 wget_args.extend(['--warc-header', 'flickr-photo-user: {}'.format(user)])
