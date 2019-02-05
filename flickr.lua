@@ -208,7 +208,9 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     users[string.match(url, "^https?://[^/]+/[^/]+/[^/]+/([0-9]+)/")] = true
   end
 
-  if allowed(url, nil) and not string.match(url, "^https?://[^/]*staticflickr%.com/") then
+  if allowed(url, nil)
+      and not (string.match(url, "^https?://[^/]*staticflickr%.com/")
+               or string.match(url, "^https?://[^/]*cdn%.yimg%.com/")) then
     html = read_file(file)
     if string.match(html, "<h3>We're having some trouble displaying this photo at the moment%. Please try again%.</h3>") then
       print("Flickr is having problems!")
