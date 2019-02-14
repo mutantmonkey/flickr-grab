@@ -115,9 +115,11 @@ allowed = function(url, parenturl)
         or string.match(url, "^https?://www%.flickr%.com/photos/[^/]+/[0-9]+$") then
       return false
     end
-    for i in string.gmatch(url, "([0-9]+)") do
-      if users[i] then
-        return true
+    if string.match(url, "^https?://www%.flickr%.com/photos/") or string.match(url, "^https?://www%.flickr%.com/video_download%.gne") or string.match(url, "^https?://[^%.]+%.staticflickr%.com/") then
+      for i in string.gmatch(url, "([0-9]+)") do
+        if users[i] then
+          return true
+        end
       end
     end
   end
