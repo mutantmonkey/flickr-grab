@@ -115,9 +115,11 @@ allowed = function(url, parenturl)
         or string.match(url, "^https?://www%.flickr%.com/photos/[^/]+/[0-9]+$") then
       return false
     end
-    for i in string.gmatch(url, "([0-9]+)") do
-      if users[i] then
-        return true
+    if string.match(url, "^https?://www%.flickr%.com/photos/") or string.match(url, "^https?://www%.flickr%.com/video_download%.gne") or string.match(url, "^https?://[^%.]+%.staticflickr%.com/") then
+      for i in string.gmatch(url, "([0-9]+)") do
+        if users[i] then
+          return true
+        end
       end
     end
   end
@@ -303,7 +305,7 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
   end
   
   if status_code >= 500
-      or (status_code >= 400 and status_code ~= 404)
+      or (status_code >= 400 and status_code ~= 403 and status_code ~= 404)
       or status_code  == 0 then
     io.stdout:write("Server returned "..http_stat.statcode.." ("..err.."). Sleeping.\n")
     io.stdout:flush()

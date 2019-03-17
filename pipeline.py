@@ -68,7 +68,7 @@ if not WGET_LUA:
 #
 # Update this each time you make a non-cosmetic change.
 # It will be added to the WARC files and reported to the tracker.
-VERSION = "20190128.01"
+VERSION = "20190311.01"
 USER_AGENT = 'ArchiveTeam'
 TRACKER_ID = 'flickr'
 TRACKER_HOST = 'tracker.archiveteam.org'
@@ -301,10 +301,10 @@ class WgetArgs(object):
             for s in r.body.decode('utf-8', 'ignore').splitlines():
                 s = s.strip()
                 if s.startswith('www.flickr.com/photos/'):
-                    s = s.split('/', 2)[2].rstrip('/')
+                    s = '/'.join(s.split('/')[2:4])
                 elif s.startswith('flickr.com/'):
                     s = s.split('/', 1)[1].rstrip('/')
-                user, i = s.split('/')
+                user, i = s.split('/') # NOTE: do not replace with anything that skips invalid urls, we want to catch those with pipeline aborts
                 wget_args.extend(['--warc-header', 'flickr-photo: {}'.format(i)])
                 wget_args.extend(['--warc-header', 'flickr-photo-user: {}'.format(user)])
                 wget_args.extend(['--warc-header', 'flickr-photo-{}-user: {}'.format(i, user)])
